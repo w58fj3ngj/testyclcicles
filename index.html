@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Website Name</title>
+  <link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#020202" />
+  <title>BetterTube</title>
 <meta content="Embed Title" property="og:title" />
 <meta content="Site Description" property="og:description" />
 <meta content="https://embed.com/this-is-the-site-url" property="og:url" />
@@ -724,6 +726,18 @@
     window.onload = () => {
       fetchVideos();
     };
+  </script>
+  <script>
+  if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then(registration => {
+      console.log('ServiceWorker registered:', registration);
+    }).catch(error => {
+      console.log('ServiceWorker registration failed:', error);
+    });
+  });
+}
+
   </script>
 </body>
 </html>
