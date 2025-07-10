@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>YouTube but better</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+  <style>
+    * { scrollbar-width: thin; scrollbar-color: #444 #1a1a1a; }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #1a1a1a; }
+    ::-webkit-scrollbar-thumb { background: #444; border-radius: 6px; }
+    html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; background: #121212; color: #eee; font-family: Arial, sans-serif; }
+    .container { max-width: 900px; margin: 2rem auto; padding: 0 1rem; height: calc(100% - 4rem); display: flex; flex-direction: column; }
+    h1 { text-align: center; margin-bottom: 1rem; border-bottom: 1px solid #222; padding-bottom: 0.5rem; }
+    .search-bar { display: flex; align-items: center; margin-bottom: 1rem; border: 1px solid #333; border-radius: 10px; background: #1a1a1a; gap: 0.5rem; }
+    .search-bar input { flex: 1; padding: 0.6rem; font-size: 1rem; border: 1px solid #333; border-radius: 6px; background: #181818; color: #eee; }
+    .search-bar input:focus { background: #222; outline: none; }
+    .search-btn { padding: 0.6rem 1.2rem; font-size: 1rem; border: none; background: #ff0000; color: #fff; cursor: pointer; border-radius: 6px; transition: background .3s; }
+    .search-btn:hover { background: #cc0000; }
+    #results { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; overflow-y: auto; }
+    .video-card { background: #1e1e1e; border-radius: 10px; padding: 0.6rem; display: flex; flex-direction: column; border: 1px solid #333; opacity: 0; transform: scale(0.95); filter: blur(4px); transition: opacity .4s, transform .4s, filter .4s; }
+    .video-card.visible { opacity: 1; transform: scale(1); filter: blur(0); }
+    .thumbnail-wrapper { position: relative; width: 100%; height: 140px; }
+    .thumbnail { width: 100%; height: 100%; border-radius: 8px; border: 1px solid #333; object-fit: cover; }
+    .duration-badge, .live-badge { position: absolute; bottom: 6px; right: 6px; padding: 2px 6px; font-size: 0.75rem; border-radius: 4px; font-weight: bold; }
+    .duration-badge { background: rgba(0,0,0,0.7); color: #fff; }
+    .live-badge { background: #e00; display: flex; align-items: center; gap: 4px; color: #fff; }
+    .live-dot { width: 8px; height: 8px; background: #fff; border-radius: 50%; }
+    .video-info { padding: 0.4rem 0; width: 100%; }
+    .video-title { font-size: 1rem; font-weight: 600; margin-bottom: 0.2rem; color: #fff; line-height: 1.2; }
+    .channel-info { display: flex; align-items: center; margin-bottom: 0.3rem; }
+    .channel-icon { width: 24px; height: 24px; border-radius: 50%; margin-right: 6px; object-fit: cover; }
+    .channel-name { font-size: 0.85rem; color: #ccc; }
+    .video-date, .video-stats { font-size: 0.8rem; color: #aaa; margin-bottom: 0.2rem; }
+    .play-btn { align-self: center; padding: 0.4rem 1rem; border: none; background: #4caf50; color: #fff; border-radius: 6px; cursor: pointer; transition: background .3s, transform .2s; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.5); }
+    .play-btn:hover { background: #3a8a36; transform: scale(1.05); }
+    .material-icons { font-size: 20px; }
+    #modal-bg { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 1000; }
+    #modal { position: relative; width: 65vw; max-width: 1150px; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; box-shadow: 0 0 20px #000; animation: growIn .3s forwards; border: 1px solid #333; }
+    @keyframes growIn { from { transform: scale(.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    @keyframes shrinkOut { from { transform: scale(1); opacity: 1; } to { transform: scale(.8); opacity: 0; } }
+    #modal.shrink { animation: shrinkOut .3s forwards; }
+    #modal iframe { width: 100%; height: 100%; border: none; object-fit: contain; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Youtube Unlocked</h1>
+    <div class="search-bar">
+      <input id="searchInput" type="text" placeholder="Search YouTube videos..." />
+      <button class="search-btn">Search</button>
+    </div>
+    <div id="results"></div>
+  </div>
+  <div id="modal-bg">
+    <div id="modal">
+      <iframe id="player" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+    </div>
+  </div>
+  <script>
+    const $ = sel => document.querySelector(sel);
+    const results = $('#results'), modalBg = $('#modal-bg'), modal = $('#modal'), player = $('#player');
+    let allVideos = [], idx = 0;
+    async function fetchAndRender(url, itemsPath) {
+      const text = await (await fetch('https://corsproxy.io/?' + encodeURIComponent(url))).text();
+      const data = JSON.parse(text.match(/var ytInitialData = (.*?);<\/script>/)[1]);
+      const items = itemsPath(data) || [];
+      const seen = new Set();
+      allVideos = [];
+      items.forEach(item => {
+        const vr = item.videoRenderer || item.richItemRenderer?.content?.videoRenderer;
+        if (!vr || seen.has(vr.videoId)) return;
+        seen.add(vr.videoId);
+        const isLive = vr.badges?.some(b => b.liveBadgeRenderer) || !vr.lengthText;
+        const raw = vr.viewCountText?.simpleText || '';
+        allVideos.push({
+          id: vr.videoId,
+          title: vr.title.runs[0].text,
+          date: vr.publishedTimeText?.simpleText || '',
+          stats: isLive ? raw : raw.replace(/ views?$/i, ' Views'),
+          duration: isLive ? '' : vr.lengthText?.simpleText || '',
+          isLive,
+          channel: vr.ownerText.runs[0].text,
+          icon: vr.channelThumbnail?.thumbnails?.pop()?.url || ''
+        });
+      });
+      idx = 0; results.innerHTML = ''; render();
+    }
+    function render() {
+      if (idx >= allVideos.length) return;
+      const v = allVideos[idx++];
+      const card = document.createElement('div'); card.className = 'video-card';
+      card.innerHTML = `
+        <div class="thumbnail-wrapper">
+          <img class="thumbnail" src="https://i.ytimg.com/vi/${v.id}/hqdefault.jpg" />
+          ${v.isLive ? '<div class="live-badge"><span class="live-dot"></span>LIVE</div>' : `<div class="duration-badge">${v.duration}</div>`}
+        </div>
+        <div class="video-info">
+          <div class="video-title">${v.title}</div>
+          <div class="channel-info">
+            ${v.icon ? `<img class="channel-icon" src="${v.icon.startsWith('//')? 'https:'+v.icon:v.icon}" onerror="this.style.display='none'"/>` : ''}
+            <span class="channel-name">${v.channel}</span>
+          </div>
+          <div class="video-date">${v.date}</div>
+          <div class="video-stats">${v.stats}</div>
+        </div>
+        <button class="play-btn" onclick="openModal('${v.id}')">
+          <span class="material-icons">play_arrow</span>
+        </button>
+      `;
+      results.appendChild(card);
+      requestAnimationFrame(() => card.classList.add('visible'));
+      setTimeout(render, 100);
+    }
+    $('.search-btn').onclick = () => {
+      const q = $('#searchInput').value.trim();
+      const url = q ? 'https://www.youtube.com/results?search_query=' + encodeURIComponent(q) : 'https://www.youtube.com';
+      const itemsPath = q
+        ? d => d.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents[0].itemSectionRenderer.contents
+        : d => d.contents.twoColumnBrowseResultsRenderer.tabs?.[0]?.tabRenderer?.content?.richGridRenderer?.contents || [];
+      fetchAndRender(url, itemsPath);
+    };
+    function openModal(id) { player.src = `https://www.youtube.com/embed/${id}?autoplay=1&enablejsapi=1&rel=0&modestbranding=1`; modalBg.style.display = 'flex'; modal.classList.remove('shrink'); }
+    modalBg.onclick = () => { modal.classList.add('shrink'); setTimeout(() => (modalBg.style.display = 'none', player.src = ''), 300); };
+    window.onload = () => $('.search-btn').click();
+  </script>
+</body>
+</html>
