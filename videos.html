@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>BetterTube — Compact (Playlists)</title>
+
+<!-- Google Material Icons -->
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+<style>
+  :root{
+    --bg: #061018;
+    --surface: #0b1220;
+    --card: #0f1624;
+    --muted: #98a6b3;
+    --accent: #3b82f6;
+    --accent-2: #60a5fa;
+    --radius: 10px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family:Inter, "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial;
+    background: var(--bg);
+    color:#e6eef6;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    padding:14px;
+  }
+
+  /* TOP BAR: no title, big centered search */
+  header.topbar{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    gap:12px;
+    padding:12px;
+    background: var(--surface);
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,0.03);
+  }
+  .search-wrap{
+    width: min(1100px, 92%);
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  input#search{
+    width:100%;
+    padding:12px 16px;
+    background: #071026; /* solid, no transparency */
+    border: 1px solid rgba(255,255,255,0.03);
+    border-radius:8px;
+    color: #eaf4ff;
+    font-size:16px;
+    outline: none;
+  }
+  input#search:focus{
+    border-color: rgba(59,130,246,0.9);
+    box-shadow: 0 6px 18px rgba(59,130,246,0.08);
+  }
+
+  /* Main layout (no sidebar) */
+  main{
+    display:flex;
+    gap:14px;
+    align-items:flex-start;
+    flex:1;
+  }
+  .results-area{
+    flex:1;
+    overflow:auto;
+    padding:6px;
+    background: var(--bg);
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,0.02);
+  }
+
+  /* video grid: more items and variety */
+  .videos-grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap:12px;
+    padding:12px;
+  }
+
+  /* card */
+  .video-card{
+    background: var(--card); /* solid */
+    border-radius:10px;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,0.03);
+    cursor:pointer;
+    transition: transform .12s ease, box-shadow .12s ease; /* toned down */
+    display:flex;
+    flex-direction:column;
+  }
+  .video-card:hover{
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+  }
+
+  .thumb {
+    position:relative;
+    width:100%;
+    aspect-ratio:16/9;
+    background:#000;
+    display:block;
+  }
+  .thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+
+  .duration {
+    position:absolute;
+    right:8px;
+    bottom:8px;
+    background:#000;
+    color:#fff;
+    padding:4px 6px;
+    font-size:12px;
+    border-radius:6px;
+    font-weight:700;
+    opacity:0.92;
+  }
+
+  .video-body{
+    padding:10px;
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+  }
+  .video-meta{
+    flex:1;
+    min-width:0;
+  }
+  .title{
+    font-weight:700;
+    font-size:0.98rem;
+    color:#eaf4ff;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .sub{
+    margin-top:6px;
+    color:var(--muted);
+    font-size:13px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  /* small icon row at bottom of card */
+  .card-actions{
+    display:flex;
+    gap:6px;
+    padding:8px 10px;
+    border-top:1px solid rgba(255,255,255,0.02);
+    background:var(--card);
+  }
+  .icon-btn{
+    display:inline-flex;
+    gap:8px;
+    align-items:center;
+    padding:6px 8px;
+    border-radius:8px;
+    background:transparent;
+    color:var(--muted);
+    border:none;
+    cursor:pointer;
+    font-weight:600;
+    transition:background .12s;
+  }
+  .icon-btn:hover{ background: rgba(255,255,255,0.02); color:#fff }
+
+  /* PLAYER overlay (solid surfaces) */
+  .player-overlay{
+    position:fixed;
+    inset: 44px 44px 44px 44px;
+    display:none; /* toggled on open */
+    z-index:1200;
+    align-items:flex-start;
+    justify-content:center;
+    gap:18px;
+    background: rgba(6,16,26,0.55); /* subtle backdrop for modal */
+  }
+  .player-card{
+    width: min(980px, calc(100% - 160px));
+    background: var(--surface);
+    border-radius:12px;
+    padding:14px;
+    border:1px solid rgba(255,255,255,0.03);
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.8);
+  }
+  #playerFrame{
+    width:100%;
+    aspect-ratio:16/9;
+    border-radius:8px;
+    border:0;
+    background:#000;
+  }
+  .player-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+  }
+  .player-title{
+    font-weight:800;
+    font-size:18px;
+    color:#eaf4ff;
+    max-width:70%;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .player-actions{
+    display:flex;
+    gap:10px;
+    align-items:center;
+  }
+  .btn{
+    display:inline-flex;
+    gap:8px;
+    align-items:center;
+    padding:8px 12px;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,0.03);
+    background:transparent;
+    cursor:pointer;
+    color:#eaf4ff;
+    font-weight:700;
+  }
+
+  /* Playlists panel (right side drawer) */
+  .playlist-drawer{
+    position:fixed;
+    right:18px;
+    top:88px;
+    width:360px;
+    max-height:70vh;
+    overflow:auto;
+    background: var(--surface);
+    border-radius:10px;
+    padding:10px;
+    border:1px solid rgba(255,255,255,0.03);
+    z-index:1400;
+    display:none;
+  }
+  .drawer-header{ display:flex; gap:8px; align-items:center; justify-content:space-between; margin-bottom:8px }
+  .playlist-list{ display:flex; flex-direction:column; gap:8px; }
+  .playlist-item{
+    display:flex; gap:8px; align-items:center; padding:8px; border-radius:8px; cursor:pointer;
+    background: transparent; border:1px solid rgba(255,255,255,0.02);
+  }
+  .playlist-item:hover{ background: rgba(255,255,255,0.02) }
+  .playlist-item .meta{ font-size:14px; color:#eaf4ff; font-weight:700 }
+
+  .playlist-videos{ margin-top:10px; display:flex; flex-direction:column; gap:8px }
+  .pl-video{
+    display:flex; gap:8px; align-items:center; padding:6px; border-radius:8px; border:1px solid rgba(255,255,255,0.02);
+  }
+  .pl-thumb{ width:100px; height:56px; object-fit:cover; border-radius:6px; flex-shrink:0 }
+
+  /* controls inside playlist */
+  .pl-controls{ display:flex; gap:8px; margin-top:8px; }
+
+  /* responsive */
+  @media (max-width:900px){
+    .player-overlay{ inset:18px 12px 12px 12px }
+    .player-card{ width: calc(100% - 48px) }
+    .playlist-drawer{ right:8px; width:300px }
+    .videos-grid{ grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+  }
+</style>
+</head>
+<body>
+
+  <!-- TOP: big centered search -->
+  <header class="topbar" role="banner">
+    <div class="search-wrap" role="search">
+      <input id="search" placeholder="Search — press / to focus, Enter to run search" aria-label="Search videos" />
+    </div>
+
+    <!-- Open playlists drawer -->
+    <button id="openPlaylists" class="icon-btn" title="Playlists" aria-label="Open playlists">
+      <span class="material-icons" style="font-size:20px">queue_music</span> Playlists
+    </button>
+  </header>
+
+  <!-- RESULTS -->
+  <main>
+    <section class="results-area" aria-live="polite">
+      <div id="results" class="videos-grid" aria-label="Search results"></div>
+    </section>
+  </main>
+
+  <!-- PLAYER overlay -->
+  <div id="playerOverlay" class="player-overlay" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="player-card" role="document">
+      <div class="player-head">
+        <div class="player-title" id="playerTitle">Title</div>
+        <div class="player-actions">
+          <div class="btn" id="playerAddToPlaylist" title="Add current video to a playlist">
+            <span class="material-icons">playlist_add</span> Add to playlist
+          </div>
+          <div class="btn" id="playerOpenPlaylist" title="Open playlist drawer">
+            <span class="material-icons">queue_music</span> Playlists
+          </div>
+          <div class="btn" id="closePlayer">Close <span class="material-icons" style="font-size:18px">close</span></div>
+        </div>
+      </div>
+
+      <!-- YouTube IFrame API player will replace this div -->
+      <div id="ytPlayerHolder"><iframe id="playerFrame" sandbox="allow-scripts allow-same-origin allow-forms" allow="autoplay; encrypted-media" allowfullscreen></iframe></div>
+
+      <div class="player-meta" id="playerMeta">Channel • Views • Published</div>
+
+      <!-- Playlist controls if a playlist is active -->
+      <div id="activePlaylistControls" style="display:none; margin-top:8px;">
+        <div style="display:flex; gap:8px; align-items:center">
+          <div class="btn" id="plPrev"><span class="material-icons">skip_previous</span>Prev</div>
+          <div class="btn" id="plNext"><span class="material-icons">skip_next</span>Next</div>
+          <div class="btn" id="plShuffleToggle"><span class="material-icons">shuffle</span>Shuffle</div>
+          <div style="margin-left:auto; color:var(--muted)">Playlist: <span id="activePlaylistName" style="font-weight:800;color:#eaf4ff"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLAYLIST DRAWER -->
+  <aside id="playlistDrawer" class="playlist-drawer" aria-hidden="true">
+    <div class="drawer-header">
+      <div style="font-weight:800; color:#eaf4ff">Playlists</div>
+      <div style="display:flex; gap:6px; align-items:center">
+        <button id="newPlaylistBtn" class="icon-btn"><span class="material-icons">playlist_add</span> New</button>
+        <button id="closeDrawer" class="icon-btn"><span class="material-icons">close</span></button>
+      </div>
+    </div>
+
+    <div id="playlistsContainer" class="playlist-list"></div>
+
+    <div style="border-top:1px solid rgba(255,255,255,0.02); padding-top:10px; margin-top:10px;">
+      <div style="font-weight:700; color:var(--muted)">Selected Playlist</div>
+      <div id="selectedPlaylistArea">
+        <div style="color:var(--muted); margin-top:6px">No playlist selected</div>
+      </div>
+    </div>
+  </aside>
+
+<script>
+/* ------------- State & Storage ------------- */
+const STORAGE_PLAYLISTS = 'bt_playlists_v1';
+
+function loadPlaylists(){
+  try{
+    return JSON.parse(localStorage.getItem(STORAGE_PLAYLISTS)||'{}');
+  }catch(e){ return {} }
+}
+function savePlaylists(obj){
+  localStorage.setItem(STORAGE_PLAYLISTS, JSON.stringify(obj));
+}
+
+/* ------------- DOM refs ------------- */
+const resultsEl = document.getElementById('results');
+const searchEl = document.getElementById('search');
+
+const playerOverlay = document.getElementById('playerOverlay');
+const playerTitle = document.getElementById('playerTitle');
+const playerFrame = document.getElementById('playerFrame');
+const playerMeta = document.getElementById('playerMeta');
+const closePlayerBtn = document.getElementById('closePlayer');
+const playerAddToPlaylistBtn = document.getElementById('playerAddToPlaylist');
+const playerOpenPlaylistBtn = document.getElementById('playerOpenPlaylist');
+
+const openPlaylistsBtn = document.getElementById('openPlaylists');
+const playlistDrawer = document.getElementById('playlistDrawer');
+const playlistsContainer = document.getElementById('playlistsContainer');
+const newPlaylistBtn = document.getElementById('newPlaylistBtn');
+const closeDrawerBtn = document.getElementById('closeDrawer');
+const selectedPlaylistArea = document.getElementById('selectedPlaylistArea');
+
+const activePlaylistControls = document.getElementById('activePlaylistControls');
+const plPrev = document.getElementById('plPrev');
+const plNext = document.getElementById('plNext');
+const plShuffleToggle = document.getElementById('plShuffleToggle');
+const activePlaylistNameEl = document.getElementById('activePlaylistName');
+
+/* ------------- runtime variables ------------- */
+let lastSearchResults = []; // array of video objects
+let currentVideo = null; // {id,title,channel,views,published,length,thumb}
+let ytPlayer = null; // YouTube Iframe API player
+let playerReady = false;
+
+let playlists = loadPlaylists(); // { name: [ {id,title,thumb,channel} ] }
+
+let activePlaylist = null; // { name, videos (array), index, shuffled (bool), order (array indices) }
+let autoplayPlaylistNext = true;
+
+/* ------------- Utilities ------------- */
+function escapeHtml(s){ return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c])) }
+
+function formatViews(viewsStr){
+  if(!viewsStr) return '0';
+  const digits = (''+viewsStr).match(/[\d,.]+/);
+  if(!digits) return viewsStr;
+  let n = parseFloat(digits[0].replace(/,/g,''));
+  if(isNaN(n)) return viewsStr;
+  if(n >= 1e9) return (n/1e9).toFixed(1)+'B';
+  if(n >= 1e6) return (n/1e6).toFixed(1)+'M';
+  if(n >= 1e3) return (n/1e3).toFixed(1)+'k';
+  return n.toString();
+}
+
+/* robust parsing for ytInitialData from HTML */
+function parseYtInitialData(html){
+  const r1 = html.match(/var ytInitialData\s*=\s*({[\s\S]*?});\s*<\/script>/);
+  const r2 = html.match(/window\["ytInitialData"\]\s*=\s*({[\s\S]*?});\s*<\/script>/);
+  const m = r1 || r2;
+  if(!m) throw new Error('initial data not found');
+  return JSON.parse(m[1]);
+}
+
+/* deep search for key name in object */
+function findAllByKey(obj, keyName, out=[]){
+  if(!obj || typeof obj !== 'object') return out;
+  if(obj[keyName]) out.push(obj[keyName]);
+  for(const k in obj){
+    try{ if(typeof obj[k] === 'object') findAllByKey(obj[k], keyName, out) }catch(e){}
+  }
+  return out;
+}
+
+/* normalize renderer -> simplified video object */
+function normalizeVideo(v){
+  const id = v.videoId || (v.videoDetails && v.videoDetails.videoId) || null;
+  const title = (v.title && (v.title.runs ? v.title.runs[0].text : v.title.simpleText)) || 'Untitled';
+  const channel = (v.ownerText && v.ownerText.runs && v.ownerText.runs[0].text) || (v.shortBylineText && v.shortBylineText.runs && v.shortBylineText.runs[0].text) || 'Unknown';
+  const views = (v.viewCountText && (v.viewCountText.simpleText || (v.viewCountText.runs && v.viewCountText.runs[0].text))) || '';
+  const published = (v.publishedTimeText && v.publishedTimeText.simpleText) || '';
+  const length = (v.lengthText && v.lengthText.simpleText) || '';
+  const thumb = id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : '';
+  return { id, title, channel, views, published, length, thumb };
+}
+
+/* ------------- Rendering results & cards ------------- */
+function createVideoCard(video){
+  const card = document.createElement('div');
+  card.className = 'video-card';
+  card.tabIndex = 0;
+  card.innerHTML = `
+    <div class="thumb">
+      <img src="${escapeHtml(video.thumb)}" alt="${escapeHtml(video.title)}" loading="lazy" />
+      <div class="duration">${escapeHtml(video.length || '')}</div>
+    </div>
+    <div class="video-body">
+      <div class="video-meta">
+        <div class="title">${escapeHtml(video.title)}</div>
+        <div class="sub">${escapeHtml(video.channel)} • ${escapeHtml(formatViews(video.views))} • ${escapeHtml(video.published)}</div>
+      </div>
+    </div>
+    <div class="card-actions">
+      <button class="icon-btn play-btn" title="Play"><span class="material-icons">play_arrow</span> Play</button>
+      <button class="icon-btn add-pl-btn" title="Add to playlist"><span class="material-icons">playlist_add</span> Add</button>
+      <button class="icon-btn open-player" title="Open player"><span class="material-icons">open_in_new</span> Open</button>
+    </div>
+  `;
+
+  // event listeners
+  card.querySelector('.play-btn').addEventListener('click', e => { e.stopPropagation(); startPlayingVideo(video); });
+  card.querySelector('.add-pl-btn').addEventListener('click', e => { e.stopPropagation(); promptAddToPlaylist(video); });
+  card.querySelector('.open-player').addEventListener('click', e => { e.stopPropagation(); openPlayer(video); });
+
+  // whole card click opens player
+  card.addEventListener('click', ()=> openPlayer(video));
+  card.addEventListener('keydown', e => { if(e.key==='Enter' || e.key===' ') { e.preventDefault(); openPlayer(video); } });
+
+  return card;
+}
+
+function renderResults(videos){
+  resultsEl.innerHTML = '';
+  if(!videos || videos.length === 0){
+    resultsEl.innerHTML = `<div style="grid-column:1/-1;padding:18px;text-align:center;color:var(--muted)">No results</div>`;
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  videos.forEach(v => frag.appendChild(createVideoCard(v)));
+  resultsEl.appendChild(frag);
+}
+
+/* ------------- Fetch videos (YouTube HTML scrape via corsproxy) ------------- */
+async function fetchVideos(query=''){
+  resultsEl.innerHTML = `<div style="grid-column:1/-1;padding:18px;text-align:center;color:var(--muted)">Loading results...</div>`;
+  try{
+    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+    const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
+    const text = await res.text();
+    const data = parseYtInitialData(text);
+
+    // Collect videoRenderer objects
+    let renderers = [];
+    const contents = (data.contents && data.contents.twoColumnSearchResultsRenderer && data.contents.twoColumnSearchResultsRenderer.primaryContents && data.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer && data.contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents) || [];
+    contents.forEach(section=>{
+      const items = section.itemSectionRenderer && section.itemSectionRenderer.contents || [];
+      items.forEach(it=>{
+        if(it.videoRenderer) renderers.push(it.videoRenderer);
+      });
+    });
+
+    // fallback deep find
+    if(renderers.length === 0){
+      const deep = findAllByKey(data, 'videoRenderer');
+      deep.forEach(x => renderers.push(x));
+    }
+
+    // normalize and dedupe
+    let videos = renderers.map(normalizeVideo).filter(v => v.id);
+    const seen = new Set();
+    videos = videos.filter(v => (seen.has(v.id) ? false : seen.add(v.id)));
+    // Increase variety: if results < 24, run a small set of variant queries to expand (append query + " -topic" etc.)
+    if(videos.length < 28){
+      // generate 2 variant searches to increase variety (best-effort, not too many)
+      const variants = [query + ' music', query + ' tutorial', query + ' highlights', query + ' 2024'].filter(Boolean);
+      for(const vq of variants.slice(0,2)){
+        try{
+          const r = await fetch(`https://corsproxy.io/?${encodeURIComponent('https://www.youtube.com/results?search_query=' + encodeURIComponent(vq))}`);
+          const t = await r.text();
+          const d = parseYtInitialData(t);
+          const deepRenderers = findAllByKey(d, 'videoRenderer');
+          deepRenderers.forEach(dr => {
+            const nv = normalizeVideo(dr);
+            if(nv.id && !seen.has(nv.id)){
+              videos.push(nv);
+              seen.add(nv.id);
+            }
+          });
+          if(videos.length >= 36) break;
+        }catch(e){}
+      }
+    }
+
+    // shuffle the array slightly for variety in recommendations
+    videos = shuffleArray(videos).slice(0, Math.max(24, Math.min(64, videos.length)));
+
+    lastSearchResults = videos;
+    renderResults(videos);
+  }catch(err){
+    console.error(err);
+    resultsEl.innerHTML = `<div style="grid-column:1/-1;padding:18px;text-align:center;color:#ff9aa2">Failed to load. Try again.</div>`;
+  }
+}
+
+/* ------------- Player: open, close, create YT API player ------------- */
+function openPlayer(video){
+  if(!video || !video.id) return;
+  currentVideo = video;
+  playerTitle.textContent = video.title;
+  playerMeta.textContent = `${video.channel} • ${formatViews(video.views)} • ${video.published}`;
+  // show overlay
+  playerOverlay.style.display = 'flex';
+  playerOverlay.setAttribute('aria-hidden', 'false');
+
+  // if YT API ready create player or loadVideoById
+  if(playerReady && ytPlayer){
+    ytPlayer.loadVideoById(video.id);
+  }else{
+    // fallback: set iframe src directly (will not give end events)
+    playerFrame.src = `https://www.youtube.com/embed/${video.id}?autoplay=1&rel=0&modestbranding=1`;
+  }
+  // Show active playlist controls if applicable
+  updateActivePlaylistControls();
+}
+
+function closePlayer(){
+  playerOverlay.style.display = 'none';
+  playerOverlay.setAttribute('aria-hidden','true');
+  if(ytPlayer && playerReady) {
+    try { ytPlayer.stopVideo(); } catch(e){}
+  }
+  playerFrame.src = '';
+  currentVideo = null;
+}
+
+/* ------------- Playlist system (localStorage) ------------- */
+function renderPlaylistsList(){
+  playlistsContainer.innerHTML = '';
+  const keys = Object.keys(playlists);
+  if(keys.length === 0){
+    playlistsContainer.innerHTML = `<div style="color:var(--muted)">No playlists yet — create one.</div>`;
+    selectedPlaylistArea.innerHTML = `<div style="color:var(--muted); margin-top:6px">No playlist selected</div>`;
+    return;
+  }
+  keys.forEach(name => {
+    const el = document.createElement('div');
+    el.className = 'playlist-item';
+    el.innerHTML = `<div class="meta">${escapeHtml(name)}</div><div style="margin-left:auto;color:var(--muted); font-size:13px">${playlists[name].length} items</div>`;
+    el.addEventListener('click', ()=> selectPlaylist(name));
+    playlistsContainer.appendChild(el);
+  });
+}
+
+function selectPlaylist(name){
+  const items = playlists[name] || [];
+  selectedPlaylistArea.innerHTML = `
+    <div style="font-weight:800; color:#eaf4ff">${escapeHtml(name)}</div>
+    <div style="color:var(--muted); font-size:13px; margin-top:6px">${items.length} videos</div>
+    <div class="pl-controls">
+      <button class="btn" id="playPlBtn"><span class="material-icons">play_arrow</span> Play</button>
+      <button class="btn" id="shufflePlBtn"><span class="material-icons">shuffle</span> Shuffle & Play</button>
+      <button class="btn" id="clearPlBtn"><span class="material-icons">delete</span> Delete</button>
+    </div>
+    <div class="playlist-videos" id="playlistVideosArea"></div>
+  `;
+  // render videos
+  const videosArea = document.getElementById('playlistVideosArea');
+  playlists[name].forEach((v, idx) => {
+    const row = document.createElement('div');
+    row.className = 'pl-video';
+    row.innerHTML = `
+      <img class="pl-thumb" src="${escapeHtml(v.thumb)}" alt="${escapeHtml(v.title)}" />
+      <div style="flex:1">
+        <div style="font-weight:700; color:#eaf4ff; font-size:13px">${escapeHtml(v.title)}</div>
+        <div style="color:var(--muted); font-size:12px">${escapeHtml(v.channel)}</div>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <button class="icon-btn pl-play-item" data-idx="${idx}" title="Play from here"><span class="material-icons">play_arrow</span></button>
+        <button class="icon-btn pl-remove-item" data-idx="${idx}" title="Remove from playlist"><span class="material-icons">delete</span></button>
+      </div>
+    `;
+    row.querySelector('.pl-play-item').addEventListener('click', ()=> playPlaylistFrom(name, idx, false));
+    row.querySelector('.pl-remove-item').addEventListener('click', ()=> { removeFromPlaylist(name, idx); selectPlaylist(name); });
+    videosArea.appendChild(row);
+  });
+
+  // hook up controls
+  document.getElementById('playPlBtn').addEventListener('click', ()=> playPlaylistFrom(name, 0, false));
+  document.getElementById('shufflePlBtn').addEventListener('click', ()=> playPlaylistFrom(name, 0, true));
+  document.getElementById('clearPlBtn').addEventListener('click', ()=> {
+    if(!confirm(`Delete playlist "${name}"?`)) return;
+    delete playlists[name];
+    savePlaylists(playlists);
+    renderPlaylistsList();
+    selectedPlaylistArea.innerHTML = `<div style="color:var(--muted); margin-top:6px">No playlist selected</div>`;
+  });
+}
+
+/* Create new playlist */
+newPlaylistBtn.addEventListener('click', ()=>{
+  const name = prompt('New playlist name:');
+  if(!name) return;
+  if(playlists[name]){ alert('A playlist with that name already exists'); return; }
+  playlists[name] = [];
+  savePlaylists(playlists);
+  renderPlaylistsList();
+  selectPlaylist(name);
+});
+
+/* Add video to playlist (prompt choose one) */
+function promptAddToPlaylist(video){
+  const names = Object.keys(playlists);
+  if(names.length === 0){
+    if(!confirm('No playlists exist. Create a new playlist now?')) return;
+    const nm = prompt('Playlist name:');
+    if(!nm) return;
+    playlists[nm] = [];
+    savePlaylists(playlists);
+    renderPlaylistsList();
+    addToPlaylist(nm, video);
+    return;
+  }
+  // simple choice: prompt with playlist names joined
+  const choice = prompt('Add to which playlist?\n' + names.map((n,i)=> `${i+1}. ${n}`).join('\n'));
+  if(!choice) return;
+  const idx = parseInt(choice) - 1;
+  if(Number.isNaN(idx) || idx < 0 || idx >= names.length){ alert('Invalid selection'); return; }
+  addToPlaylist(names[idx], video);
+  selectPlaylist(names[idx]);
+}
+
+function addToPlaylist(name, video){
+  if(!playlists[name]) playlists[name] = [];
+  const exists = playlists[name].some(x => x.id === video.id);
+  if(exists){ alert('Video already in playlist'); return; }
+  playlists[name].push({ id: video.id, title: video.title, thumb: video.thumb, channel: video.channel });
+  savePlaylists(playlists);
+  renderPlaylistsList();
+  selectPlaylist(name);
+}
+
+/* remove item from playlist */
+function removeFromPlaylist(name, idx){
+  if(!playlists[name]) return;
+  playlists[name].splice(idx,1);
+  savePlaylists(playlists);
+}
+
+/* ------------- Active playlist playback logic ------------- */
+function playPlaylistFrom(name, startIndex=0, shuffled=false){
+  const list = playlists[name];
+  if(!list || list.length === 0) { alert('Playlist is empty'); return; }
+  // prepare activePlaylist
+  const videos = list.slice(); // array of {id,title,thumb,channel}
+  activePlaylist = {
+    name,
+    videos,
+    index: startIndex,
+    shuffled: !!shuffled,
+    order: shuffled ? shuffleArray(Array.from(videos.keys())) : Array.from(videos.keys())
+  };
+  // ensure index mapping: if shuffled true, startIndex refers to position in original list => map to order index
+  if(activePlaylist.shuffled){
+    // find position in order where value === startIndex
+    const pos = activePlaylist.order.indexOf(startIndex);
+    activePlaylist.currentPos = pos >= 0 ? pos : 0;
+  } else {
+    activePlaylist.currentPos = startIndex;
+  }
+  activePlaylistControls.style.display = 'block';
+  activePlaylistNameEl.textContent = name;
+  // play first video
+  playActivePlaylistCurrent();
+  // ensure playlist drawer open and selected
+  playlistDrawer.style.display = 'block';
+  renderPlaylistsList();
+  selectPlaylist(name);
+  // show overlay controls
+  updateActivePlaylistControls();
+}
+
+/* Play the video at activePlaylist.currentPos */
+function playActivePlaylistCurrent(){
+  if(!activePlaylist) return;
+  const pos = activePlaylist.currentPos || 0;
+  const order = activePlaylist.order;
+  const vidIdx = order ? order[pos] : pos;
+  const v = activePlaylist.videos[vidIdx];
+  if(!v) return;
+  // create tiny normalized object for openPlayer
+  const videoObj = { id: v.id, title: v.title, channel: v.channel, views: '', published: '', length: '', thumb: v.thumb };
+  openPlayer(videoObj);
+}
+
+/* Next/Prev controls */
+plNext.addEventListener('click', ()=>{
+  if(!activePlaylist) return;
+  activePlaylist.currentPos = (activePlaylist.currentPos + 1) % activePlaylist.order.length;
+  playActivePlaylistCurrent();
+});
+plPrev.addEventListener('click', ()=>{
+  if(!activePlaylist) return;
+  activePlaylist.currentPos = (activePlaylist.currentPos - 1 + activePlaylist.order.length) % activePlaylist.order.length;
+  playActivePlaylistCurrent();
+});
+plShuffleToggle.addEventListener('click', ()=>{
+  if(!activePlaylist) return;
+  activePlaylist.shuffled = !activePlaylist.shuffled;
+  activePlaylist.order = activePlaylist.shuffled ? shuffleArray(Array.from(activePlaylist.videos.keys())) : Array.from(activePlaylist.videos.keys());
+  activePlaylist.currentPos = 0;
+  playActivePlaylistCurrent();
+  updateActivePlaylistControls();
+});
+
+function updateActivePlaylistControls(){
+  if(activePlaylist){
+    activePlaylistControls.style.display = 'block';
+    activePlaylistNameEl.textContent = activePlaylist.name;
+  }else{
+    activePlaylistControls.style.display = 'none';
+    activePlaylistNameEl.textContent = '';
+  }
+}
+
+/* when a video added from player (playerAddToPlaylist) */
+playerAddToPlaylistBtn.addEventListener('click', ()=>{
+  if(!currentVideo) { alert('No video active'); return; }
+  promptAddToPlaylist(currentVideo);
+});
+playerOpenPlaylistBtn.addEventListener('click', ()=> {
+  playlistDrawer.style.display = 'block';
+  playlistDrawer.setAttribute('aria-hidden', 'false');
+});
+
+/* open/close playlist drawer */
+openPlaylistsBtn.addEventListener('click', ()=>{
+  const show = playlistDrawer.style.display !== 'block';
+  playlistDrawer.style.display = show ? 'block' : 'none';
+  playlistDrawer.setAttribute('aria-hidden', show ? 'false' : 'true');
+  if(show) renderPlaylistsList();
+});
+closeDrawerBtn.addEventListener('click', ()=> { playlistDrawer.style.display = 'none'; playlistDrawer.setAttribute('aria-hidden','true'); });
+
+/* remove active playlist when closed (not automatically) - keep as is */
+
+/* ------------- small helpers ------------- */
+function shuffleArray(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+/* ------------- Play a single video (play immediate) ------------- */
+function startPlayingVideo(video){
+  // clear active playlist if exists
+  activePlaylist = null;
+  updateActivePlaylistControls();
+  openPlayer(video);
+}
+
+/* ------------- Keyboard shortcuts ------------- */
+document.addEventListener('keydown', e=>{
+  if(e.key === '/' && document.activeElement !== searchEl){
+    e.preventDefault(); searchEl.focus(); searchEl.select();
+  } else if(e.key === 'Escape'){
+    if(playerOverlay.style.display === 'flex') closePlayer();
+    else if(playlistDrawer.style.display === 'block') { playlistDrawer.style.display = 'none'; playlistDrawer.setAttribute('aria-hidden','true'); }
+  }
+});
+
+/* Close player button */
+closePlayerBtn.addEventListener('click', closePlayer);
+
+/* Click outside overlay to close */
+playerOverlay.addEventListener('click', (e) => { if(e.target === playerOverlay) closePlayer(); });
+
+/* ------------- Add to playlist shortcut on card -> implemented above ------------- */
+
+/* ------------- On page load: initial search (trending-ish) ------------- */
+fetchAfterLoad('trending');
+
+/* helper: initial default query or passed */
+function fetchAfterLoad(q){
+  // start with a default search to populate lots of videos
+  fetchVideos(q || 'trending');
+}
+
+/* Search input handling */
+searchEl.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){
+    const q = searchEl.value.trim();
+    if(q) fetchVideos(q);
+  }
+});
+
+/* ------------- Render playlists initially ------------- */
+renderPlaylistsList();
+
+/* ------------- YouTube IFrame API for playback + ended events ------------- */
+/* We'll load the YT iframe API to detect video end and auto-play next in active playlist. */
+(function loadYouTubeAPI(){
+  const tag = document.createElement('script');
+  tag.src = "https://www.youtube.com/iframe_api";
+  document.head.appendChild(tag);
+})();
+
+function onYouTubeIframeAPIReady(){
+  // create a player in the existing iframe element
+  ytPlayer = new YT.Player('playerFrame', {
+    height: '390',
+    width: '640',
+    videoId: '',
+    playerVars: { autoplay: 1, modestbranding: 1, rel: 0 },
+    events: {
+      'onReady': function(){ playerReady = true; },
+      'onStateChange': onPlayerStateChange
+    }
+  });
+}
+
+/* handle end -> next */
+function onPlayerStateChange(event){
+  // 0 means ended
+  if(event.data === YT.PlayerState.ENDED){
+    if(activePlaylist){
+      // play next if exists
+      activePlaylist.currentPos = (activePlaylist.currentPos + 1) % activePlaylist.order.length;
+      playActivePlaylistCurrent();
+    }
+  }
+}
+
+/* The YT API requires global function */
+window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+
+/* ------------- Extra small UX: clicking playlist "Play" will start at specific index etc. handled above ------------- */
+
+</script>
+</body>
+</html>
