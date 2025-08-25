@@ -3,400 +3,636 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Vyder Interface</title>
+  <title>Vyder OS</title>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
-  <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#050505">
+
   <style>
-    * {
-      margin: 0; padding: 0; box-sizing: border-box;
-      font-family: Arial, sans-serif;
+    :root{
+      --bg: #0a0c10;
+      --panel: #11151c;
+      --panel-2:#0f131a;
+      --text:#e7eaf0;
+      --muted:#93a0b4;
+      --accent:#7c5cff;         /* neon purple */
+      --accent-2:#00d4ff;       /* cyan pop */
+      --card:#131823;
+      --border:#1c2230;
+      --shadow: 0 10px 30px rgba(0,0,0,.50);
+      --radius:16px;
     }
-    html, body {
-      height: 100%; overflow: hidden;
+    [data-theme="neon"]{
+      --accent:#ff3ea5;
+      --accent-2:#62ff8e;
+      --panel:#0e0e16;
+      --panel-2:#0b0b12;
+      --card:#111121;
+      --border:#1a1a2b;
     }
-    body {
-      display: flex;
-      background-color: #1f2937;
-      color: #e5e7eb;
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      background: radial-gradient(1200px 1200px at 10% -20%, rgba(124,92,255,.12), transparent 60%),
+                  radial-gradient(900px 900px at 100% 0%, rgba(0,212,255,.10), transparent 50%),
+                  var(--bg);
+      color:var(--text);
+      overflow:hidden;
     }
-    .sidebar {
-      width: 250px;
-      background: linear-gradient(to bottom, #121721, #0e131b);
-      color: white;
-      display: flex;
-      flex-direction: column;
-      position: relative;
-	  border-right: 1px solid #0c0f16;
+
+    /* ====== Overlay Drawer Sidebar (keep your text style vibes) ====== */
+    .sidebar{
+      position:fixed; inset:0 auto 0 0; width:280px; background:linear-gradient(180deg,var(--panel),var(--panel-2));
+      border-right:1px solid var(--border); transform:translateX(-100%); transition:.25s ease; z-index:50;
+      display:flex; flex-direction:column;
     }
-    .sidebar-header {
-      padding: 12px 0;
-      text-align: center;
-      backdrop-filter: blur(10px);
-      background: rgba(14, 19, 27, 0.8);
+    .sidebar.open{ transform:none; }
+    .sidebar-header{
+      padding:18px; text-align:center; position:relative; user-select:none;
+      background:linear-gradient(90deg, transparent, rgba(124,92,255,.10), transparent);
     }
-    .sidebar h2 {
-      font-size: 1.6rem;
-      font-weight: 600;
-      background: linear-gradient(90deg, #3b82f6, #60a5fa);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.3));
+    .sidebar h2{
+      margin:0;
+      font-size:1.6rem; font-weight:800;
+      letter-spacing:.5px;
+      background:linear-gradient(90deg, var(--accent), var(--accent-2));
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      filter: drop-shadow(0 0 20px rgba(124,92,255,.25));
     }
-    .sidebar-content {
-      flex: 1;
-      overflow-y: auto;
-      scrollbar-width: thin;
-      scrollbar-color: #334155 transparent;
+    .search{
+      display:flex; gap:8px; padding:10px 14px;
     }
-    .sidebar-content::-webkit-scrollbar {
-      width: 8px;
+    .search input{
+      width:100%; background:#0d1117; border:1px solid var(--border); color:var(--text);
+      padding:10px 12px; border-radius:10px; outline:none;
     }
-    .sidebar-content::-webkit-scrollbar-thumb {
-      background-color: #334155;
-      border-radius: 10px;
+    .section-title{
+      padding:10px 18px; color:var(--muted); text-transform:uppercase; font-size:.78rem; letter-spacing:.12em;
     }
-    .sidebar a {
-      padding: 9px 20px;
-      text-decoration: none;
-      color: white;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      transition: background 0.15s ease;
-      position: relative;
-      user-select: none;
+    .nav{
+      overflow:auto; padding:6px 10px 18px; flex:1;
     }
-	
-    .sidebar a.active {
-      background-color: #0c0f16;
+    .link{
+      display:flex; align-items:center; gap:10px; padding:10px 12px; margin:6px 6px; text-decoration:none; color:var(--text);
+      border:1px solid transparent; border-radius:12px; transition:.15s ease; user-select:none;
     }
-    .sidebar a .text {
-      transition: transform 0.2s ease;
+    .link:hover{ background:#0d1117; border-color:var(--border); transform:translateX(4px) }
+    .link .material-icons{ font-size:20px; color:var(--muted) }
+    .pin{ margin-left:auto; opacity:.6 }
+    .link.pinned{ border-color:rgba(124,92,255,.35); background:linear-gradient(180deg, rgba(124,92,255,.08), transparent); }
+
+    .drawer-overlay{
+      position:fixed; inset:0; background:rgba(0,0,0,.55); opacity:0; pointer-events:none; transition:.25s ease; z-index:40;
     }
-    .sidebar a:hover .text {
-      transform: translateX(6px);
+    .drawer-overlay.open{ opacity:1; pointer-events:auto }
+
+    /* ====== Top Bar (tabs + quick actions) ====== */
+    .topbar{
+      position:fixed; left:0; right:0; top:0; height:56px; display:flex; align-items:center; gap:10px;
+      padding:8px 14px 8px 64px;  /* room for menu btn */
+      background:rgba(10,12,16,.6); backdrop-filter: blur(10px); border-bottom:1px solid var(--border);
+      z-index:30;
     }
-    .section {
-      margin-bottom: 20px;
+    .menu-btn{
+      position:fixed; top:10px; left:12px; z-index:60; border:none; cursor:pointer;
+      background:linear-gradient(180deg, #121621,#0d1117); color:var(--text);
+      border:1px solid var(--border); border-radius:12px; height:36px; width:36px; display:grid; place-items:center;
+      box-shadow: var(--shadow);
     }
-    .section-title {
-      padding: 10px 20px;
-      font-size: 0.9rem;
-      text-transform: uppercase;
-      color: #9ca3af;
-      user-select: none;
+    .menu-btn .material-icons{ font-size:22px }
+
+    .tabs{
+      display:flex; align-items:center; gap:8px; overflow:auto; scrollbar-width:none; flex:1;
     }
-    .content {
-      flex: 1;
-      background: linear-gradient(to bottom, #10141d, #0a0f17);
-      position: relative;
-      overflow: hidden;
+    .tab{
+      display:flex; align-items:center; gap:10px; max-width:240px;
+      background:linear-gradient(180deg,#121621,#10141b); border:1px solid var(--border); color:var(--text);
+      padding:8px 12px; border-radius:12px; white-space:nowrap; cursor:pointer; min-width:120px;
+      box-shadow: 0 3px 14px rgba(0,0,0,.25);
     }
-    .iframe-container {
-      display: none;
-      width: 100%;
-      height: 100%;
-      flex-direction: column;
-      position: relative;
-      opacity: 0;
-      animation: fadeIn 0.3s forwards;
+    .tab.active{ outline:1.5px solid rgba(124,92,255,.55) }
+    .tab .title{ overflow:hidden; text-overflow:ellipsis }
+    .tab .x{ margin-left:4px; opacity:.7 }
+    .quick-actions{ display:flex; align-items:center; gap:8px }
+    .btn{
+      border:1px solid var(--border); background:linear-gradient(180deg,#121621,#10141b); color:var(--text);
+      height:36px; padding:0 12px; border-radius:12px; display:flex; align-items:center; gap:8px; cursor:pointer;
     }
-    .iframe-container.active {
-      display: flex;
+    .btn:hover{ outline:1px solid rgba(255,255,255,.06) }
+
+    /* ====== Workspace: dashboard + dock ====== */
+    .workspace{
+      position:fixed; inset:56px 0 90px 0; display:grid; grid-template-columns: 1.4fr 1fr; gap:18px; padding:18px; overflow:auto;
     }
-    .iframe-header {
-      height: 34px;
-      background: rgba(31, 41, 55, 0.85);
-      color: #e5e7eb;
-      padding: 0 10px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 14px;
-      backdrop-filter: blur(6px);
-      user-select: none;
+    .panel{
+      background:linear-gradient(180deg, var(--card), #0f131b); border:1px solid var(--border); border-radius:var(--radius);
+      box-shadow: var(--shadow);
     }
-    .iframe-controls {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+    .panel-header{
+      display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:1px solid var(--border);
+      background:linear-gradient(180deg, rgba(255,255,255,.03), transparent);
     }
-    .iframe-controls i {
-      cursor: pointer;
-      transition: color 0.2s ease;
-      font-size: 20px;
-      user-select: none;
+    .panel-title{ font-weight:700; letter-spacing:.3px }
+    .panel-body{ padding:14px }
+    .grid{
+      display:grid; gap:14px;
     }
-    .iframe-controls i:hover {
-      color: #60a5fa;
+
+    /* Widgets */
+    .kpi{
+      display:flex; align-items:center; justify-content:space-between; padding:16px; border-radius:14px;
+      background:linear-gradient(180deg, #101522, #0f1420); border:1px solid var(--border);
     }
-    iframe {
-      border: none;
-      width: 100%;
-      height: 100%;
-      flex: 1;
+    .kpi .label{ color:var(--muted); font-size:.9rem }
+    .kpi .value{ font-size:1.6rem; font-weight:800; letter-spacing:.5px; background:linear-gradient(90deg,var(--accent),var(--accent-2));
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+    .clock{
+      font-size:2.1rem; font-weight:800; letter-spacing:1px; text-align:center; padding:10px 0;
     }
-    .material-icons {
-      font-size: 20px;
+    .mini-list{ display:flex; flex-direction:column; gap:10px }
+    .mini-item{
+      display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px dashed var(--border); border-radius:12px; background:#0e131a;
     }
-    .indicator {
-      position: absolute;
-      top: 50%;
-      right: 14px;
-      transform: translateY(-50%);
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      opacity: 0;
-      animation: fadeInDot 0.3s forwards;
+    .badge{
+      padding:4px 8px; border-radius:999px; font-size:.75rem; border:1px solid var(--border); color:var(--muted)
     }
-    .indicator.green {
-      background-color: #22c55e;
+
+    /* App launcher cards */
+    .apps{
+      display:grid; grid-template-columns:repeat(auto-fill, minmax(180px,1fr)); gap:14px;
     }
-    .indicator.orange {
-      background-color: #f97316;
+    .app{
+      background:linear-gradient(180deg,#0f141e,#0c1118); border:1px solid var(--border); border-radius:14px;
+      padding:14px; cursor:pointer; transition:.15s ease; min-height:100px; display:flex; gap:12px; align-items:flex-start;
     }
-    .indicator.loading {
-      width: 10px;
-      height: 10px;
-      border: 2px solid #60a5fa;
-      border-top: 2px solid transparent;
-      animation: spin 0.6s linear infinite, fadeInDot 0.3s forwards;
-      opacity: 0;
+    .app:hover{ transform:translateY(-3px); outline:1px solid rgba(124,92,255,.35) }
+    .app .material-icons{ color:var(--muted) }
+
+    /* ====== Bottom Dock (resizable iframe player) ====== */
+    .dock{
+      position:fixed; left:0; right:0; bottom:0; height:90px; background:linear-gradient(180deg, rgba(9,12,16,.6), rgba(9,12,16,.9));
+      border-top:1px solid var(--border); backdrop-filter: blur(10px); z-index:20;
+      display:flex; align-items:center; gap:10px; padding:8px 12px;
     }
-    @keyframes spin {
-      0% { transform: translateY(-50%) rotate(0deg); }
-      100% { transform: translateY(-50%) rotate(360deg); }
+    .dragbar{
+      position:absolute; top:-6px; left:0; right:0; height:6px; cursor:ns-resize; background:linear-gradient(90deg, transparent, rgba(124,92,255,.4), transparent);
+      border-top:1px solid rgba(124,92,255,.25); border-bottom:1px solid rgba(255,255,255,.04);
+      border-radius:6px 6px 0 0; opacity:.6;
     }
-    @keyframes fadeIn {
-      to { opacity: 1; }
+    .dock .meta{ display:flex; align-items:center; gap:10px; min-width:180px }
+    .dot{ width:10px; height:10px; border-radius:50%; background:linear-gradient(180deg, var(--accent), var(--accent-2)); box-shadow:0 0 18px rgba(124,92,255,.6) }
+    .dock-title{ font-weight:700; letter-spacing:.2px }
+    .dock-controls{ display:flex; align-items:center; gap:8px; margin-left:auto }
+    .icon-btn{
+      height:36px; width:40px; display:grid; place-items:center; border-radius:10px; border:1px solid var(--border);
+      background:linear-gradient(180deg,#121621,#10141b); color:var(--text); cursor:pointer;
     }
-    @keyframes fadeInDot {
-      to { opacity: 1; }
+    .icon-btn:hover{ outline:1px solid rgba(255,255,255,.06) }
+
+    .iframe-wrap{
+      position:fixed; left:10px; right:10px; bottom:90px; height:0; overflow:hidden; border-radius:14px; border:1px solid var(--border);
+      box-shadow: var(--shadow); background:#0b0f15;
     }
-    .pause-overlay {
-      position: absolute;
-      top: 34px;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: transparent;
-      z-index: 10;
-      pointer-events: all;
-    }
-    .pause-overlay.hidden {
-      pointer-events: none;
+    .iframe-wrap.active{ height:48vh; } /* default open size after first load */
+    iframe{ width:100%; height:100%; border:0; background:#0b0f15 }
+
+    /* ====== Utilities ====== */
+    .hide{ display:none !important }
+    .muted{ color:var(--muted) }
+    .spacer{ flex:1 }
+    .pill{ border-radius:999px; border:1px solid var(--border); padding:6px 10px; display:flex; align-items:center; gap:8px }
+
+    @media (max-width: 1100px){
+      .workspace{ grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
-  <div class="sidebar">
+
+  <!-- Sidebar Drawer -->
+  <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <h2>Vyder</h2>
     </div>
-    <div class="sidebar-content">
-      <div class="section">
-        <div class="section-title">Basics</div>
-        <a href="#" data-id="home" data-title="Home" data-url="https://example.com"><span class="material-icons">home</span><span class="text">Home</span></a>
-        <a href="#" data-id="notes" data-title="Notes" data-url="https://example.com"><span class="material-icons">text_snippet</span><span class="text">Notes</span></a>
-      </div>
-      <div class="section">
-        <div class="section-title">Utilities</div>
-        <a href="#" data-id="calc" data-title="Calculator" data-url="https://example.com"><span class="material-icons">calculate</span><span class="text">Calculator</span></a>
-        <a href="#" data-id="calendar" data-title="Calendar" data-url="https://example.com"><span class="material-icons">event</span><span class="text">Calendar</span></a>
-        <a href="#" data-id="weather" data-title="Weather" data-url="https://example.com"><span class="material-icons">cloud</span><span class="text">Weather</span></a>
-        <a href="#" data-id="timer" data-title="Timer" data-url="https://example.com"><span class="material-icons">alarm</span><span class="text">Timer</span></a>
-      </div>
-      <div class="section">
-        <div class="section-title">Entertainment</div>
-        <a href="#" data-id="games" data-title="Games" data-url="games.html"><span class="material-icons">games</span><span class="text">Games</span></a>
-        <a href="#" data-id="videos" data-title="Videos" data-url="videos.html"><span class="material-icons">video_library</span><span class="text">Videos</span></a>
-      </div>
-      <div class="section">
-        <div class="section-title">Developer</div>
-        <a href="#" data-id="editor" data-title="Code Editor" data-url="https://example.com"><span class="material-icons">code</span><span class="text">Code Editor</span></a>
-        <a href="#" data-id="themes" data-title="Theme Switcher" data-url="https://example.com"><span class="material-icons">palette</span><span class="text">Theme Switcher</span></a>
-        <a href="#" data-id="settings" data-title="Settings" data-url="https://example.com"><span class="material-icons">settings</span><span class="text">Settings</span></a>
-      </div>
+    <div class="search">
+      <span class="material-icons muted">search</span>
+      <input id="appSearch" placeholder="Search apps…" />
     </div>
-  </div>
-  <div class="content" id="contentArea"></div>
-  <script>
-    const links = document.querySelectorAll('.sidebar a');
-    const contentArea = document.getElementById('contentArea');
-    let activeTabId = null;
-    let pausedTabs = new Set();
-    let isPaused = false;
 
-    function clearActive() {
-      links.forEach(l => l.classList.remove('active'));
-    }
-    function addIndicator(link, type) {
-      removeIndicator(link);
-      const indicator = document.createElement('span');
-      indicator.className = 'indicator ' + type;
-      link.appendChild(indicator);
-    }
-    function removeIndicator(link) {
-      const old = link.querySelector('.indicator');
-      if (old) old.remove();
-    }
-    function updateIndicatorColor(id) {
-      const btn = [...links].find(a => a.dataset.id === id);
-      if (!btn) return;
-      removeIndicator(btn);
-      if (pausedTabs.has(id)) addIndicator(btn, 'orange');
-      else addIndicator(btn, 'green');
-    }
-    function closeApp(id) {
-      const container = document.getElementById(id);
-      if (container) container.remove();
-      pausedTabs.delete(id);
-      const btn = [...links].find(a => a.dataset.id === id);
-      if (btn) {
-        btn.classList.remove('active');
-        removeIndicator(btn);
-      }
-      if (activeTabId === id) {
-        activeTabId = null;
-        isPaused = false;
-        updatePauseButton();
-      }
-    }
-    function fullscreen(id) {
-      const iframe = document.querySelector(`#${id} iframe`);
-      if (iframe.requestFullscreen) iframe.requestFullscreen();
-      else if (iframe.webkitRequestFullscreen) iframe.webkitRequestFullscreen();
-      else if (iframe.msRequestFullscreen) iframe.msRequestFullscreen();
-    }
-    function createPauseOverlay(container) {
-      let overlay = container.querySelector('.pause-overlay');
-      if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.className = 'pause-overlay hidden';
-        container.appendChild(overlay);
-      }
-      return overlay;
-    }
-    function updatePauseButton() {
-      const pauseBtn = document.getElementById('iframePauseToggle');
-      if (!pauseBtn) return;
-      pauseBtn.textContent = isPaused ? 'play_arrow' : 'pause';
-      pauseBtn.title = isPaused ? 'Resume iframe' : 'Pause iframe';
-    }
-    function updatePauseOverlay() {
-      document.querySelectorAll('.iframe-container').forEach(container => {
-        const overlay = container.querySelector('.pause-overlay');
-        if (!overlay) return;
-        if (container.id === activeTabId && isPaused) {
-          overlay.classList.remove('hidden');
-          pausedTabs.add(activeTabId);
-          updateIndicatorColor(activeTabId);
-        } else if (pausedTabs.has(container.id)) {
-          updateIndicatorColor(container.id);
-          overlay.classList.add('hidden');
-        } else {
-          overlay.classList.add('hidden');
-          if (!pausedTabs.has(container.id)) {
-            const btn = [...links].find(a => a.dataset.id === container.id);
-            if (btn) {
-              removeIndicator(btn);
-              addIndicator(btn, 'green');
-            }
-          }
-        }
-      });
-    }
+    <div class="section-title">Pinned</div>
+    <nav class="nav" id="pinned"></nav>
 
-    function togglePause() {
-      if (!activeTabId) return;
-      isPaused = !isPaused;
-      if (isPaused) pausedTabs.add(activeTabId);
-      else pausedTabs.delete(activeTabId);
-      updatePauseButton();
-      updatePauseOverlay();
-    }
+    <div class="section-title">All Apps</div>
+    <nav class="nav" id="applist"></nav>
+  </aside>
+  <div class="drawer-overlay" id="drawerOverlay"></div>
+  <button class="menu-btn" id="menuBtn" title="Open Sidebar"><span class="material-icons">menu</span></button>
 
-    links.forEach(link => {
-      link.addEventListener('click', e => {
-        e.preventDefault();
-        const id = link.dataset.id;
-        const title = link.dataset.title;
-        const url = link.dataset.url;
+  <!-- Top Bar -->
+  <header class="topbar">
+    <div class="tabs" id="tabs"></div>
+    <div class="quick-actions">
+      <button class="btn pill" id="themeBtn"><span class="material-icons">auto_awesome</span>Theme</button>
+      <button class="btn pill" id="newTabBtn"><span class="material-icons">add</span>New Tab</button>
+    </div>
+  </header>
 
-        clearActive();
-        link.classList.add('active');
-
-        document.querySelectorAll('.iframe-container').forEach(c => c.classList.remove('active'));
-        let existing = document.getElementById(id);
-        if (existing) {
-          existing.classList.add('active');
-          activeTabId = id;
-          isPaused = pausedTabs.has(id);
-          updatePauseButton();
-          updatePauseOverlay();
-          return;
-        }
-
-        addIndicator(link, 'loading');
-
-        const container = document.createElement('div');
-        container.className = 'iframe-container active';
-        container.id = id;
-
-        const iframe = document.createElement('iframe');
-        iframe.src = url;
-        iframe.style.display = 'none';
-
-        const header = document.createElement('div');
-        header.className = 'iframe-header';
-        header.innerHTML = `
-          ${title}
-          <div class="iframe-controls">
-            <i class="material-icons" id="iframePauseToggle" title="Pause iframe" style="cursor:pointer;">pause</i>
-            <i class="material-icons" title="Fullscreen" style="cursor:pointer;">fullscreen</i>
-            <i class="material-icons" title="Close" style="cursor:pointer;">close</i>
+  <!-- Workspace (Dashboard) -->
+  <main class="workspace" id="workspace">
+    <!-- Left: Dashboard -->
+    <section class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Dashboard</div>
+        <div class="pill"><span class="material-icons">dashboard</span><span class="muted">Overview</span></div>
+      </div>
+      <div class="panel-body">
+        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px,1fr));">
+          <div class="kpi">
+            <div>
+              <div class="label">Active Tabs</div>
+              <div class="value" id="kpiTabs">0</div>
+            </div>
+            <span class="material-icons">tab</span>
           </div>
-        `;
+          <div class="kpi">
+            <div>
+              <div class="label">Pinned Apps</div>
+              <div class="value" id="kpiPins">0</div>
+            </div>
+            <span class="material-icons">push_pin</span>
+          </div>
+          <div class="kpi">
+            <div>
+              <div class="label">Theme</div>
+              <div class="value" id="kpiTheme">Dark</div>
+            </div>
+            <span class="material-icons">auto_awesome</span>
+          </div>
+        </div>
 
-        container.appendChild(header);
-        container.appendChild(iframe);
-        createPauseOverlay(container);
-        contentArea.appendChild(container);
+        <div class="grid" style="grid-template-columns: 1.2fr 1fr; margin-top:14px">
+          <div class="panel" style="border-radius:14px">
+            <div class="panel-header">
+              <div class="panel-title">Clock</div>
+              <div class="muted">Local time</div>
+            </div>
+            <div class="panel-body">
+              <div class="clock" id="clock">--:--:--</div>
+            </div>
+          </div>
 
-        const pauseBtn = header.querySelector('#iframePauseToggle');
-        const fullscreenBtn = header.querySelector('.material-icons[title="Fullscreen"]');
-        const closeBtn = header.querySelector('.material-icons[title="Close"]');
+          <div class="panel" style="border-radius:14px">
+            <div class="panel-header">
+              <div class="panel-title">System</div>
+              <div class="muted">Browser info</div>
+            </div>
+            <div class="panel-body mini-list" id="sysInfo">
+              <!-- populated by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-        pauseBtn.onclick = e => {
-          e.stopPropagation();
-          togglePause();
-        };
-        fullscreenBtn.onclick = e => {
-          e.stopPropagation();
-          fullscreen(id);
-        };
-        closeBtn.onclick = e => {
-          e.stopPropagation();
-          closeApp(id);
-        };
+    <!-- Right: App Launcher -->
+    <section class="panel">
+      <div class="panel-header">
+        <div class="panel-title">App Launcher</div>
+        <div class="muted">Open pages in tabs or the dock</div>
+      </div>
+      <div class="panel-body">
+        <div class="apps" id="appCards">
+          <!-- cards via JS -->
+        </div>
+      </div>
+    </section>
+  </main>
 
-        iframe.onload = () => {
-          setTimeout(() => {
-            iframe.style.display = 'block';
-            removeIndicator(link);
-            addIndicator(link, 'green');
-            activeTabId = id;
-            isPaused = false;
-            pausedTabs.delete(id);
-            updatePauseButton();
-            updatePauseOverlay();
-          }, 500);
-        };
+  <!-- Resizable Iframe Dock -->
+  <div class="iframe-wrap" id="iframeWrap">
+    <iframe id="dockFrame" src="about:blank" title="Vyder Dock"></iframe>
+  </div>
+
+  <footer class="dock" id="dock">
+    <div class="dragbar" id="dragbar"></div>
+    <div class="meta">
+      <div class="dot"></div>
+      <div class="dock-title" id="dockTitle">Dock: idle</div>
+    </div>
+    <div class="spacer"></div>
+    <button class="icon-btn" id="backBtn" title="Back"><span class="material-icons">arrow_back</span></button>
+    <button class="icon-btn" id="forwardBtn" title="Forward"><span class="material-icons">arrow_forward</span></button>
+    <button class="icon-btn" id="reloadBtn" title="Reload"><span class="material-icons">refresh</span></button>
+    <button class="icon-btn" id="openBtn" title="Open in Dock"><span class="material-icons">launch</span></button>
+    <button class="icon-btn" id="collapseBtn" title="Collapse Dock"><span class="material-icons">expand_more</span></button>
+    <button class="icon-btn" id="closeDockBtn" title="Close Dock"><span class="material-icons">close</span></button>
+  </footer>
+
+  <script>
+    /* ====== Data ====== */
+    const APPS = [
+      { id:'home',     title:'Home',       url:'https://example.com',           icon:'home' },
+      { id:'notes',    title:'Notes',      url:'https://lite.phenx.de/notes/', icon:'text_snippet' },
+      { id:'calc',     title:'Calculator', url:'https://itools.subhashbose.com/calculator', icon:'calculate' },
+      { id:'calendar', title:'Calendar',   url:'https://calendar.google.com',   icon:'event' },
+      { id:'weather',  title:'Weather',    url:'https://wttr.in/?format=v2',    icon:'cloud' },
+      { id:'editor',   title:'Code Editor',url:'https://stackblitz.com',        icon:'code' },
+      { id:'games',    title:'Games',      url:'games.html',                    icon:'sports_esports' },
+      { id:'videos',   title:'Videos',     url:'videos.html',                   icon:'video_library' },
+      { id:'timer',    title:'Timer',      url:'https://timer.onlineclock.net', icon:'timer' },
+      { id:'settings', title:'Settings',   url:'about:blank',                   icon:'settings' },
+    ];
+
+    /* ====== Elements ====== */
+    const sidebar = document.getElementById('sidebar');
+    const drawerOverlay = document.getElementById('drawerOverlay');
+    const menuBtn = document.getElementById('menuBtn');
+    const appList = document.getElementById('applist');
+    const pinnedList = document.getElementById('pinned');
+    const appSearch = document.getElementById('appSearch');
+    const appCards = document.getElementById('appCards');
+    const tabsEl = document.getElementById('tabs');
+    const kpiTabs = document.getElementById('kpiTabs');
+    const kpiPins = document.getElementById('kpiPins');
+    const kpiTheme = document.getElementById('kpiTheme');
+    const clockEl = document.getElementById('clock');
+    const sysInfoEl = document.getElementById('sysInfo');
+
+    const themeBtn = document.getElementById('themeBtn');
+    const newTabBtn = document.getElementById('newTabBtn');
+
+    const iframeWrap = document.getElementById('iframeWrap');
+    const dockFrame = document.getElementById('dockFrame');
+    const dockTitle = document.getElementById('dockTitle');
+    const dragbar = document.getElementById('dragbar');
+
+    const backBtn = document.getElementById('backBtn');
+    const forwardBtn = document.getElementById('forwardBtn');
+    const reloadBtn = document.getElementById('reloadBtn');
+    const openBtn = document.getElementById('openBtn');
+    const collapseBtn = document.getElementById('collapseBtn');
+    const closeDockBtn = document.getElementById('closeDockBtn');
+
+    /* ====== State ====== */
+    let theme = localStorage.getItem('vyder-theme') || 'dark';
+    document.documentElement.dataset.theme = theme === 'neon' ? 'neon' : '';
+    kpiTheme.textContent = theme === 'neon' ? 'Neon' : 'Dark';
+
+    let pinned = JSON.parse(localStorage.getItem('vyder-pins') || '["home","notes","calc"]');
+    let tabs = [];           // {id,title,url,el,history:[],index:0}
+    let activeTab = null;    // id of active
+
+    /* ====== Sidebar Drawer ====== */
+    const openDrawer = () => { sidebar.classList.add('open'); drawerOverlay.classList.add('open'); };
+    const closeDrawer = () => { sidebar.classList.remove('open'); drawerOverlay.classList.remove('open'); };
+    menuBtn.addEventListener('click', openDrawer);
+    drawerOverlay.addEventListener('click', closeDrawer);
+    window.addEventListener('keydown', e => { if(e.key==='Escape') closeDrawer(); });
+
+    /* ====== Renderers ====== */
+    function renderLists(){
+      appList.innerHTML = '';
+      pinnedList.innerHTML = '';
+
+      const term = appSearch.value?.toLowerCase() || '';
+      APPS.filter(a => a.title.toLowerCase().includes(term)).forEach(app=>{
+        const el = document.createElement('a');
+        el.href='#'; el.className='link';
+        el.dataset.app = app.id;
+        el.innerHTML = `<span class="material-icons">${app.icon}</span><span>${app.title}</span>`+
+                       `<span class="material-icons pin" title="Pin/Unpin">push_pin</span>`;
+        if(pinned.includes(app.id)) el.classList.add('pinned');
+
+        el.addEventListener('click', (e)=>{
+          if(e.target.closest('.pin')){
+            togglePin(app.id);
+            e.preventDefault();
+            return;
+          }
+          openAppInTab(app);
+          closeDrawer();
+          e.preventDefault();
+        });
+
+        (pinned.includes(app.id) ? pinnedList : appList).appendChild(el);
       });
+
+      kpiPins.textContent = pinned.length;
+    }
+
+    function renderCards(){
+      appCards.innerHTML = '';
+      APPS.forEach(app=>{
+        const card = document.createElement('div');
+        card.className = 'app';
+        card.innerHTML = `<span class="material-icons">${app.icon}</span>
+                          <div><div style="font-weight:700">${app.title}</div>
+                          <div class="muted" style="font-size:.9rem">${app.url}</div></div>`;
+        card.addEventListener('click', ()=> openAppInTab(app));
+        appCards.appendChild(card);
+      });
+    }
+
+    function renderTabs(){
+      tabsEl.innerHTML = '';
+      tabs.forEach(t=>{
+        const el = document.createElement('div');
+        el.className = 'tab' + (t.id===activeTab?' active':'');
+        el.dataset.id = t.id;
+        el.innerHTML = `<span class="material-icons">tab</span>
+                        <span class="title">${t.title}</span>
+                        <span class="material-icons x" title="Close">close</span>`;
+        el.addEventListener('click', (e)=>{
+          if(e.target.closest('.x')){ closeTab(t.id); e.stopPropagation(); return; }
+          focusTab(t.id);
+        });
+        tabsEl.appendChild(el);
+        t.el = el;
+      });
+      kpiTabs.textContent = tabs.length;
+    }
+
+    /* ====== Pins ====== */
+    function togglePin(id){
+      if(pinned.includes(id)) pinned = pinned.filter(x=>x!==id);
+      else pinned.push(id);
+      localStorage.setItem('vyder-pins', JSON.stringify(pinned));
+      renderLists();
+    }
+
+    /* ====== Tabs ====== */
+    function openAppInTab(app){
+      // if tab already exists, focus
+      const exist = tabs.find(t=>t.id===app.id);
+      if(exist){ focusTab(exist.id); return; }
+
+      const t = {
+        id: app.id,
+        title: app.title,
+        url: app.url,
+        history: [app.url],
+        index: 0
+      };
+      tabs.push(t);
+      focusTab(t.id);
+      renderTabs();
+      // also prepare the dock button "open" to load current active tab url
+      dockTitle.textContent = `Dock: ${t.title}`;
+    }
+
+    function focusTab(id){
+      activeTab = id;
+      renderTabs();
+      const t = tabs.find(x=>x.id===id);
+      if(t) dockTitle.textContent = `Dock: ${t.title}`;
+    }
+
+    function closeTab(id){
+      const i = tabs.findIndex(t=>t.id===id);
+      if(i===-1) return;
+      tabs.splice(i,1);
+      if(activeTab===id){
+        activeTab = tabs[i-1]?.id || tabs[i]?.id || null;
+      }
+      renderTabs();
+    }
+
+    newTabBtn.addEventListener('click', ()=>{
+      const app = { id:'tab'+Date.now(), title:'New Tab', url:'https://example.com', icon:'public' };
+      APPS.push(app);
+      openAppInTab(app);
     });
+
+    /* ====== Dock (iframe) ====== */
+    function ensureWrapOpen(){
+      iframeWrap.classList.add('active');
+      collapseBtn.innerHTML = '<span class="material-icons">expand_more</span>';
+      collapseBtn.title = 'Collapse Dock';
+    }
+
+    openBtn.addEventListener('click', ()=>{
+      const t = tabs.find(x=>x.id===activeTab);
+      if(!t){ dockTitle.textContent = 'Dock: idle'; return; }
+      ensureWrapOpen();
+      navigateDock(t.url, t.title);
+    });
+
+    backBtn.addEventListener('click', ()=>{
+      const t = tabs.find(x=>x.id===activeTab);
+      if(!t) return;
+      if(t.index>0){
+        t.index--; navigateDock(t.history[t.index], t.title, false);
+      }
+    });
+
+    forwardBtn.addEventListener('click', ()=>{
+      const t = tabs.find(x=>x.id===activeTab);
+      if(!t) return;
+      if(t.index < t.history.length-1){
+        t.index++; navigateDock(t.history[t.index], t.title, false);
+      }
+    });
+
+    reloadBtn.addEventListener('click', ()=> { try{ dockFrame.contentWindow.location.reload(); }catch{} });
+
+    collapseBtn.addEventListener('click', ()=>{
+      if(iframeWrap.classList.contains('active')){
+        iframeWrap.classList.remove('active');
+        collapseBtn.innerHTML = '<span class="material-icons">expand_less</span>';
+        collapseBtn.title = 'Expand Dock';
+      }else{
+        ensureWrapOpen();
+      }
+    });
+
+    closeDockBtn.addEventListener('click', ()=>{
+      iframeWrap.classList.remove('active');
+      dockFrame.src = 'about:blank';
+      dockTitle.textContent = 'Dock: idle';
+    });
+
+    function navigateDock(url, title, push=true){
+      dockFrame.src = url;
+      dockTitle.textContent = `Dock: ${title}`;
+      const t = tabs.find(x=>x.id===activeTab);
+      if(!t) return;
+      if(push){
+        t.history = t.history.slice(0, t.index+1);
+        t.history.push(url);
+        t.index++;
+      }
+    }
+
+    /* Resizable dock height */
+    (function(){
+      let dragging = false, startY=0, startH=0;
+      dragbar.addEventListener('mousedown', (e)=>{
+        dragging = true; startY = e.clientY; startH = iframeWrap.getBoundingClientRect().height;
+        document.body.style.userSelect='none';
+      });
+      window.addEventListener('mousemove', (e)=>{
+        if(!dragging) return;
+        const dy = startY - e.clientY;
+        const newH = Math.max(120, Math.min(window.innerHeight-140, startH + dy));
+        iframeWrap.style.height = newH + 'px';
+      });
+      window.addEventListener('mouseup', ()=>{
+        if(dragging) dragging=false, document.body.style.userSelect='';
+      });
+    })();
+
+    /* ====== Theme Toggle ====== */
+    themeBtn.addEventListener('click', ()=>{
+      theme = theme==='neon' ? 'dark' : 'neon';
+      document.documentElement.dataset.theme = theme==='neon' ? 'neon' : '';
+      localStorage.setItem('vyder-theme', theme);
+      kpiTheme.textContent = theme==='neon' ? 'Neon' : 'Dark';
+    });
+
+    /* ====== Search ====== */
+    appSearch.addEventListener('input', renderLists);
+
+    /* ====== Clock & System ====== */
+    function tickClock(){
+      const d = new Date();
+      const pad = n=> String(n).padStart(2,'0');
+      clockEl.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+    setInterval(tickClock, 1000); tickClock();
+
+    function loadSysInfo(){
+      const items = [
+        {icon:'devices', label:'Platform', value: navigator.platform || 'n/a'},
+        {icon:'memory', label:'Hardware Concurrency', value: (navigator.hardwareConcurrency||'?') + ' cores'},
+        {icon:'public', label:'Online', value: navigator.onLine ? 'Yes' : 'No'},
+        {icon:'language', label:'Language', value: navigator.language || 'n/a'},
+        {icon:'bolt', label:'UA', value: navigator.userAgent.slice(0,80) + '…'},
+      ];
+      sysInfoEl.innerHTML = '';
+      items.forEach(it=>{
+        const el = document.createElement('div');
+        el.className='mini-item';
+        el.innerHTML = `<span class="material-icons muted">${it.icon}</span>
+                        <div style="flex:1">
+                          <div class="muted" style="font-size:.82rem">${it.label}</div>
+                          <div>${it.value}</div>
+                        </div>
+                        <span class="badge">info</span>`;
+        sysInfoEl.appendChild(el);
+      });
+    }
+    loadSysInfo();
+
+    /* ====== Boot ====== */
+    function boot(){
+      renderLists();
+      renderCards();
+      renderTabs();
+      // Auto-open a welcome tab
+      openAppInTab(APPS.find(a=>a.id==='home') || APPS[0]);
+    }
+    boot();
   </script>
-  
 </body>
 </html>
